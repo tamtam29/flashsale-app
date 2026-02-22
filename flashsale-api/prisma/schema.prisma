@@ -1,0 +1,73 @@
+// Prisma Schema for Flash Sale System
+// Database: PostgreSQL
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// SALES TABLE
+// ============================================
+model Sale {
+  id         String   @id @default(uuid()) @db.Uuid
+  name       String   @db.VarChar(255)
+  totalStock Int      @map("total_stock")
+  startsAt   DateTime @map("starts_at") @db.Timestamptz(6)
+  endsAt     DateTime @map("ends_at") @db.Timestamptz(6)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  orders     Order[]
+  auditTrail OrderAuditTrail[]
+
+  @@index([startsAt, endsAt], name: "idx_sales_time_range")
+  @@index([createdAt(sort: Desc)], name: "idx_sales_created_at")
+  @@map("sales")
+}
+
+// ============================================
+// ORDERS TABLE
+// ============================================
+model Order {
+  id        String   @id @default(uuid()) @db.Uuid
+  saleId    String   @map("sale_id") @db.Uuid
+  userId    String   @map("user_id") @db.VarChar(255)
+  status    String   @default("CONFIRMED") @db.VarChar(50)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relations
+  sale Sale @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  @@unique([saleId, userId], name: "unique_user_per_sale")
+  @@index([saleId], name: "idx_orders_sale_id")
+  @@index([userId], name: "idx_orders_user_id")
+  @@index([createdAt(sort: Desc)], name: "idx_orders_created_at")
+  @@map("orders")
+}
+
+// ============================================
+// ORDER AUDIT TRAIL TABLE
+// ============================================
+model OrderAuditTrail {
+  id        String   @id @default(uuid()) @db.Uuid
+  saleId    String   @map("sale_id") @db.Uuid
+  userId    String   @map("user_id") @db.VarChar(255)
+  eventType String   @map("event_type") @db.VarChar(100)
+  metadata  Json?    @db.JsonB
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relations
+  sale Sale @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  @@index([saleId, userId], name: "idx_audit_sale_user")
+  @@index([eventType], name: "idx_audit_event_type")
+  @@index([createdAt(sort: Desc)], name: "idx_audit_created_at")
+  @@map("order_audit_trail")
+}
