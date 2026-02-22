@@ -1,17 +1,17 @@
-# High-Throughput Flash Sale System
+# Flash Sale System
 
 A scalable, high-performance flash sale platform built with Node.js, designed to handle thousands of concurrent purchase requests with strict inventory control and fairness guarantees.
 
 ## 📋 Table of Contents
 
-- [System Overview](#system-overview)
-- [Technology Stack](#technology-stack)
-- [Architecture & Design Choices](#architecture--design-choices)
-- [System Diagram](#system-diagram)
-- [Getting Started](#getting-started)
-- [Running Tests](#running-tests)
-- [Stress Testing](#stress-testing)
-- [API Documentation](#api-documentation)
+- [System Overview](#-system-overview)
+- [Technology Stack](#️-technology-stack)
+- [Architecture & Design Choices](#️-architecture--design-choices)
+- [System Diagram](#-system-diagram)
+- [Getting Started](#-getting-started)
+- [Running Tests](#-running-tests)
+- [Stress Testing](#-stress-testing)
+- [API Documentation](#-api-documentation)
 
 ## 🎯 System Overview
 

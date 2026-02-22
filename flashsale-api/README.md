@@ -1,98 +1,270 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Flash Sale API Service
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+The main API service for the high-throughput flash sale system, built with NestJS and TypeScript.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Overview
 
-## Description
+This service handles HTTP requests from clients and coordinates the flash sale purchase flow. It uses Redis for atomic purchase validation, RabbitMQ for async order processing, and PostgreSQL for persistent storage.
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+**Key Responsibilities:**
+- Process purchase requests with sub-100ms latency
+- Validate sale time windows and stock availability
+- Execute atomic operations in Redis using Lua scripts
+- Publish purchase events to message queue
+- Manage sale status and user purchase history
+- Provide health check and monitoring endpoints
 
-## Project setup
+## Folder Structure
 
-```bash
-$ npm install
+```
+flashsale-api/
+├── prisma/
+│   ├── schema.prisma                     # Database schema definition
+│   ├── seed.ts                           # Database seeding script
+│   └── migrations/                       # Database migration files
+│       ├── migration_lock.toml
+│       └── 20260222193201_initial_database/
+│           └── migration.sql
+├── src/
+│   ├── main.ts                           # Application entry point
+│   ├── app.module.ts                     # Root module
+│   ├── app.controller.ts                 # Root controller
+│   ├── app.service.ts                    # Root service
+│   │
+│   ├── common/                           # Shared utilities
+│   │   └── guards/
+│   │       └── user-rate-limit.guard.ts  # Rate limiting guard
+│   │
+│   └── modules/                          # Feature modules
+│       │
+│       ├── audit/                        # Audit logging module
+│       │   ├── audit.module.ts
+│       │   ├── audit.service.ts          # Batch audit logging
+│       │   ├── audit.types.ts            # Audit event types
+│       │   └── index.ts
+│       │
+│       ├── database/                     # Database module
+│       │   ├── database.module.ts
+│       │   ├── prisma.service.ts         # Prisma client service
+│       │   └── index.ts
+│       │
+│       ├── health/                       # Health check module
+│       │   ├── health.module.ts
+│       │   ├── health.controller.ts      # /health endpoint
+│       │   └── health.service.ts
+│       │
+│       ├── queue/                        # RabbitMQ module
+│       │   ├── queue.module.ts
+│       │   └── queue.service.ts          # Message publishing
+│       │
+│       ├── redis/                        # Redis module
+│       │   ├── redis.module.ts
+│       │   ├── redis.service.ts          # Redis client & Lua scripts
+│       │   └── script/
+│       │       └── purchase.lua          # Atomic purchase logic
+│       │
+│       └── sale/                         # Sale module (core business logic)
+│           ├── sale.module.ts
+│           ├── sale.controller.ts        # REST API endpoints
+│           ├── sale.service.ts           # Business logic
+│           ├── sale.controller.spec.ts   # Controller tests
+│           ├── sale.service.spec.ts      # Service tests
+│           ├── index.ts
+│           └── dto/                      # Data transfer objects
+│               ├── purchase.dto.ts
+│               ├── sale-status.dto.ts
+│               └── user-purchase.dto.ts
+│
+├── test/
+│   ├── app.e2e-spec.ts                   # End-to-end tests
+│   └── jest-e2e.json                     # E2E test configuration
+│
+├── Dockerfile                            # Container image definition
+├── package.json                          # Dependencies and scripts
+├── tsconfig.json                         # TypeScript configuration
+├── tsconfig.build.json                   # Build-specific TS config
+├── nest-cli.json                         # NestJS CLI configuration
+└── eslint.config.mjs                     # ESLint configuration
 ```
 
-## Compile and run the project
+## Technology Stack
 
-```bash
-# development
-$ npm run start
+- **Framework**: NestJS 11
+- **Runtime**: Node.js 20
+- **Language**: TypeScript 5
+- **Database**: PostgreSQL 15 (Prisma ORM)
+- **Cache**: Redis 7 (with Lua scripting)
+- **Queue**: RabbitMQ 3.12
+- **Testing**: Jest 30
 
-# watch mode
-$ npm run start:dev
+## API Endpoints
 
-# production mode
-$ npm run start:prod
+### Sales Management
+- `GET /api/v1/sales` - List all sales
+- `GET /api/v1/sale/:saleId/status` - Get sale status and stock
+- `GET /api/v1/sale/:saleId/user/:userId/purchase` - Check if user purchased
+
+### Purchase Flow
+- `POST /api/v1/sale/purchase` - Attempt to purchase (main endpoint)
+
+### Admin/Testing
+- `POST /api/v1/admin/reset` - Reset sale data (testing only)
+
+### Health
+- `GET /health` - Health check endpoint
+
+## Environment Variables
+
+```env
+NODE_ENV=development
+PORT=3000
+DATABASE_URL=postgresql://user:password@localhost:5432/flashsale?connection_limit=50&pool_timeout=20
+REDIS_HOST=localhost
+REDIS_PORT=6379
+RABBITMQ_URL=amqp://user:password@localhost:5672
 ```
 
-## Run tests
+## Getting Started
+
+### Install Dependencies
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+npm install
 ```
 
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+### Database Setup
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+# Generate Prisma Client
+npm run prisma:generate
+
+# Run migrations
+npm run prisma:migrate
+
+# Seed database with sample sales
+npm run prisma:seed
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+### Run the Application
 
-## Resources
+```bash
+# Development mode (with hot reload)
+npm run start:dev
 
-Check out a few resources that may come in handy when working with NestJS:
+# Production mode
+npm run build
+npm run start:prod
+```
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+The API will be available at `http://localhost:3000`
 
-## Support
+## Running Tests
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+```bash
+# Unit tests
+npm run test
 
-## Stay in touch
+# Unit tests with coverage
+npm run test:cov
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+# Watch mode (for development)
+npm run test:watch
 
-## License
+# E2E tests
+npm run test:e2e
+```
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+**Test Coverage:**
+- `sale.service.spec.ts`: 26 tests covering business logic, caching, and reconciliation
+- `sale.controller.spec.ts`: 23 tests covering REST endpoints and validation
+- Additional tests for audit service and other modules
+
+## Key Features
+
+### 1. Atomic Purchase Logic
+Uses Redis Lua scripts to ensure atomic operations:
+- Check if user already purchased
+- Validate stock availability
+- Decrement stock counter
+- Add user to purchased set
+
+All in a single atomic operation to prevent race conditions.
+
+### 2. Asynchronous Order Processing
+- Purchase requests return immediately after Redis validation
+- Order persistence happens asynchronously via RabbitMQ
+- Database failures don't block user experience
+
+### 3. Multi-Layer Caching
+- **In-memory**: Sale objects cached for 1 minute
+- **Redis**: Stock counters and user sets (persistent)
+- **Database**: Source of truth
+
+### 4. Startup Reconciliation
+On startup, the service reconciles Redis state with the database to handle crashes or restarts gracefully.
+
+### 5. Batch Audit Logging
+Audit events are queued in memory and flushed to database in batches (every 1 second or 100 events) to reduce database load.
+
+## Available Scripts
+
+```bash
+# Development
+npm run start:dev          # Start with hot reload
+
+# Build
+npm run build              # Compile TypeScript
+
+# Production
+npm run start:prod         # Run production build
+
+# Prisma
+npm run prisma:generate    # Generate Prisma Client
+npm run prisma:migrate     # Run migrations
+npm run prisma:seed        # Seed database
+npm run prisma:studio      # Open Prisma Studio
+
+# Testing
+npm run test               # Run unit tests
+npm run test:cov           # Run with coverage
+npm run test:e2e           # Run E2E tests
+
+# Code Quality
+npm run lint               # Run ESLint
+npm run format             # Format code with Prettier
+```
+
+## Docker Usage
+
+```bash
+# Build image
+docker build -t flashsale-api .
+
+# Run container
+docker run -p 3000:3000 \
+  -e DATABASE_URL=postgresql://... \
+  -e REDIS_HOST=redis \
+  -e RABBITMQ_URL=amqp://... \
+  flashsale-api
+```
+
+## Architecture Notes
+
+This API service follows NestJS best practices:
+- **Module-based architecture** for separation of concerns
+- **Dependency injection** for testability
+- **Guards** for rate limiting and authentication
+- **DTOs** for request/response validation
+- **Service layer** for business logic
+- **Repository pattern** via Prisma
+
+The purchase flow is optimized for:
+- **High throughput** (2000+ req/s)
+- **Low latency** (p95 < 100ms)
+- **No overselling** (atomic Redis operations)
+- **No duplicates** (user validation in Redis + DB constraints)
+
+## Related Services
+
+- **flashsale-worker**: Consumes messages from RabbitMQ and persists orders to database
+- **flashsale-frontend**: Next.js web interface for users
