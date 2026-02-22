@@ -61,7 +61,7 @@ flashsale-frontend/
 - **Language**: TypeScript 5
 - **UI Library**: React 19
 - **Styling**: Tailwind CSS 3
-- **Data Fetching**: SWR (stale-while-revalidate)
+- **Data Fetching**: TanStack Query (React Query) v5
 - **HTTP Client**: Native fetch API
 
 ## Environment Variables
@@ -126,12 +126,24 @@ npm start
 
 ## Key Features Explained
 
-### SWR Data Fetching
-Uses `useSWR` for intelligent data fetching:
-- Automatic revalidation on focus
-- Interval polling (5 seconds for detail page)
+### TanStack Query (React Query) Data Fetching
+Uses `useQuery` and `useMutation` for intelligent data fetching:
+- Automatic revalidation on focus and interval
 - Optimistic UI updates
-- Built-in error handling and retries
+- Built-in caching and deduplication
+- Error retry logic with exponential backoff
+- Query invalidation after mutations
+
+**Example**:
+```typescript
+// Automatic refetch every 3 seconds for real-time stock updates
+const { data, isLoading } = useQuery({
+  queryKey: ['sale', saleId],
+  queryFn: () => getSaleStatus(saleId),
+  refetchInterval: 3000,
+  staleTime: 1000,
+});
+```
 
 ### Real-time Updates
 - Sale list refreshes when window regains focus

@@ -40,7 +40,7 @@ This system implements a high-throughput flash sale platform with the following 
 - **Language**: TypeScript 5
 - **UI Library**: React 19
 - **Styling**: Tailwind CSS 3
-- **Data Fetching**: SWR (stale-while-revalidate)
+- **Data Fetching**: TanStack Query (React Query) v5
 
 ### Infrastructure
 - **Container**: Docker & Docker Compose

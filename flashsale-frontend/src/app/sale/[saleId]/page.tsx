@@ -76,8 +76,16 @@ export default function SalePage() {
 
   // Handle purchase attempt
   const handlePurchase = async () => {
+    // Validate user ID format
     if (!userId || userId.trim() === '') {
       setInputError('Please enter a valid User ID');
+      return;
+    }
+
+    // Basic sanitization - prevent XSS
+    const sanitizedUserId = userId.trim();
+    if (sanitizedUserId.length > 100) {
+      setInputError('User ID is too long (max 100 characters)');
       return;
     }
 
@@ -85,7 +93,7 @@ export default function SalePage() {
     setPurchaseResult(null);
 
     try {
-      const result = await purchaseMutation.mutateAsync({ userId });
+      const result = await purchaseMutation.mutateAsync({ userId: sanitizedUserId });
       setPurchaseResult(result);
     } catch (err) {
       setInputError(err instanceof Error ? err.message : 'Failed to complete purchase');
@@ -212,10 +220,11 @@ export default function SalePage() {
 
   if (saleLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center" role="status" aria-live="polite">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" aria-hidden="true"></div>
           <p className="text-gray-600">Loading sale information...</p>
+          <span className="sr-only">Loading sale information, please wait</span>
         </div>
       </div>
     );

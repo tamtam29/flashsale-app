@@ -36,8 +36,9 @@ export function usePurchase(saleId: string) {
     mutationFn: ({ userId }: { userId: string }) => attemptPurchase(saleId, userId),
     onSuccess: (data, variables) => {
       // Invalidate and refetch relevant queries after successful purchase
-      queryClient.invalidateQueries({ queryKey: ['sale ', saleId] });
+      queryClient.invalidateQueries({ queryKey: ['sale', saleId] });
       queryClient.invalidateQueries({ queryKey: ['userPurchase', saleId, variables.userId] });
+      queryClient.invalidateQueries({ queryKey: ['sales'] });
     },
   });
 }

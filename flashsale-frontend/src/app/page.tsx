@@ -60,9 +60,10 @@ export default function Home() {
           <h2 className="text-2xl font-semibold text-gray-900 mb-6">Active Sales</h2>
           
           {isLoading && (
-            <div className="text-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
+            <div className="text-center py-12" role="status" aria-live="polite">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto" aria-hidden="true"></div>
               <p className="mt-4 text-gray-600">Loading sales...</p>
+              <span className="sr-only">Loading available sales, please wait</span>
             </div>
           )}
 
