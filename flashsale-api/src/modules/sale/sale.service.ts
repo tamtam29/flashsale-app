@@ -91,6 +91,7 @@ export class SaleService implements OnModuleInit {
 
   /**
    * Get all sales with their status
+   * Optimized to avoid N+1 queries
    */
   async getAllSales(): Promise<SaleStatusDto[]> {
     const sales = await this.prisma.sale.findMany({
@@ -99,34 +100,41 @@ export class SaleService implements OnModuleInit {
       },
     });
 
-    const salesWithStatus = await Promise.all(
-      sales.map(async (sale) => {
-        // Get remaining stock from Redis
-        const remainingStock = await this.redis.getStock(sale.id);
+    // Batch fetch all stock counts from Redis (more efficient than individual calls)
+    const stockPromises = sales.map((sale) => this.redis.getStock(sale.id));
+    const stockCounts = await Promise.all(stockPromises);
 
-        // Get total sold from database
-        const totalSold = await this.prisma.order.count({
-          where: {
-            saleId: sale.id,
-            status: 'CONFIRMED',
-          },
-        });
+    // Single database query to get all order counts (instead of N queries)
+    const orderCounts = await this.prisma.order.groupBy({
+      by: ['saleId'],
+      where: {
+        status: 'CONFIRMED',
+      },
+      _count: {
+        id: true,
+      },
+    });
 
-        // Check if sale is active
-        const saleActive = this.validateSaleWindow(sale);
-
-        return {
-          saleId: sale.id,
-          name: sale.name,
-          remainingStock,
-          totalSold,
-          saleActive,
-          startsAt: sale.startsAt,
-          endsAt: sale.endsAt,
-          status: saleActive ? 'ACTIVE' : 'INACTIVE',
-        };
-      }),
+    // Create a map for O(1) lookup
+    const orderCountMap = new Map(
+      orderCounts.map((oc) => [oc.saleId, oc._count.id]),
     );
+
+    // Build response with cached data
+    const salesWithStatus = sales.map((sale, index) => {
+      const saleActive = this.validateSaleWindow(sale);
+
+      return {
+        saleId: sale.id,
+        name: sale.name,
+        remainingStock: stockCounts[index],
+        totalSold: orderCountMap.get(sale.id) || 0,
+        saleActive,
+        startsAt: sale.startsAt,
+        endsAt: sale.endsAt,
+        status: saleActive ? 'ACTIVE' : 'INACTIVE',
+      };
+    });
 
     return salesWithStatus;
   }
