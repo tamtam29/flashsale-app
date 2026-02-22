@@ -5,16 +5,13 @@ A scalable, high-performance flash sale platform built with Node.js, designed to
 ## 📋 Table of Contents
 
 - [System Overview](#system-overview)
-- [Non-Functional Requirements Compliance](#non-functional-requirements-compliance)
+- [Technology Stack](#technology-stack)
 - [Architecture & Design Choices](#architecture--design-choices)
 - [System Diagram](#system-diagram)
-- [Technology Stack](#technology-stack)
 - [Getting Started](#getting-started)
 - [Running Tests](#running-tests)
 - [Stress Testing](#stress-testing)
-- [Failure Testing & Resilience Validation](#failure-testing--resilience-validation)
 - [API Documentation](#api-documentation)
-- [Trade-offs & Considerations](#trade-offs--considerations)
 
 ## 🎯 System Overview
 
