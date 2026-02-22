@@ -253,7 +253,3 @@ The worker is designed for:
 
 - **flashsale-api**: Receives user requests and publishes messages to RabbitMQ
 - **flashsale-frontend**: Next.js web interface for users
-
-## License
-
-This project is for evaluation purposes only.
