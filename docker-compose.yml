@@ -1,0 +1,166 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: flashsale-db
+    environment:
+      POSTGRES_USER: flashsale
+      POSTGRES_PASSWORD: flashsale_password
+      POSTGRES_DB: flashsale
+      POSTGRES_MAX_CONNECTIONS: 200
+    command: postgres -c max_connections=200 -c shared_buffers=256MB
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flashsale"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - flashsale-network
+    restart: unless-stopped
+
+  # Adminer Database Management
+  adminer:
+    image: adminer:latest
+    container_name: flashsale-adminer
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+    networks:
+      - flashsale-network
+    restart: unless-stopped
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: flashsale-redis
+    command: redis-server --appendonly yes --appendfsync everysec --maxmemory 512mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - flashsale-network
+    restart: unless-stopped
+
+  # RabbitMQ Message Queue
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    container_name: flashsale-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: flashsale
+      RABBITMQ_DEFAULT_PASS: flashsale_password
+    ports:
+      - "5672:5672"   # AMQP port
+      - "15672:15672" # Management UI
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - flashsale-network
+    restart: unless-stopped
+
+  # NestJS API Service
+  api:
+    image: node:20-alpine
+    container_name: flashsale-api
+    working_dir: /app
+    command: sh -c "npm install && npx prisma generate && npm run start:dev"
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      DATABASE_URL: postgresql://flashsale:flashsale_password@db:5432/flashsale?connection_limit=50&pool_timeout=20
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_URL: amqp://flashsale:flashsale_password@rabbitmq:5672
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ./flashsale-api:/app
+      - /app/node_modules
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - flashsale-network
+    restart: unless-stopped
+
+  # NestJS Worker Service
+  worker:
+    image: node:20-alpine
+    working_dir: /app
+    command: sh -c "npm install && npx prisma generate && npm run start:dev"
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://flashsale:flashsale_password@db:5432/flashsale?connection_limit=30&pool_timeout=20
+      RABBITMQ_URL: amqp://flashsale:flashsale_password@rabbitmq:5672
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    volumes:
+      - ./flashsale-worker:/app
+      - /app/node_modules
+    networks:
+      - flashsale-network
+    restart: unless-stopped
+    deploy:
+      replicas: 3
+
+  # Next.js Frontend
+  frontend:
+    image: node:20-alpine
+    container_name: flashsale-frontend
+    working_dir: /app
+    command: sh -c "npm install && npm run dev"
+    environment:
+      NODE_ENV: development
+      NEXT_PUBLIC_API_URL: http://localhost:3000
+    ports:
+      - "3001:3000"
+    depends_on:
+      - api
+    volumes:
+      - ./flashsale-frontend:/app
+      - /app/node_modules
+      - /app/.next
+    networks:
+      - flashsale-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  rabbitmq_data:
+
+networks:
+  flashsale-network:
+    driver: bridge
